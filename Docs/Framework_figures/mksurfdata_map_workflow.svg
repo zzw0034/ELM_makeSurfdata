@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1410" viewBox="0 0 1600 1410" role="img" aria-labelledby="title desc">
+  <title id="title">Flexible high-resolution ELM surfdata workflow using mksurfdata_map</title>
+  <desc id="desc">Workflow diagram showing reusable steps to create custom ELM surface data for any target region and resolution, including grid generation, mapping files, domain files, custom PFT and LUT preparation, mksurfdata_map execution, post-processing soil updates, and model-ready outputs for ELM.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8f6f1"/>
+      <stop offset="100%" stop-color="#f0eee8"/>
+    </linearGradient>
+    <linearGradient id="banner" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0f5c78"/>
+      <stop offset="100%" stop-color="#2b7a78"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#20313c" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#39586b"/>
+    </marker>
+    <style>
+      .title { font: 700 34px "Avenir Next", "Helvetica Neue", Arial, sans-serif; fill: #173042; }
+      .subtitle { font: 400 17px "Avenir Next", "Helvetica Neue", Arial, sans-serif; fill: #4b6170; }
+      .section { font: 700 21px "Avenir Next", "Helvetica Neue", Arial, sans-serif; fill: #173042; }
+      .body { font: 500 18px "Avenir Next", "Helvetica Neue", Arial, sans-serif; fill: #173042; }
+      .small { font: 400 14px "Avenir Next", "Helvetica Neue", Arial, sans-serif; fill: #536976; }
+      .tiny { font: 400 13px "Courier New", monospace; fill: #415463; }
+      .stepnum { font: 700 24px "Avenir Next", "Helvetica Neue", Arial, sans-serif; fill: #ffffff; }
+      .steptitle { font: 700 21px "Avenir Next", "Helvetica Neue", Arial, sans-serif; fill: #173042; }
+      .steptext { font: 500 16px "Avenir Next", "Helvetica Neue", Arial, sans-serif; fill: #2b4352; }
+      .output { font: 700 17px "Avenir Next", "Helvetica Neue", Arial, sans-serif; fill: #173042; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1600" height="1410" fill="url(#bg)"/>
+
+  <text x="800" y="68" text-anchor="middle" class="title">Flexible High-Resolution ELM Surfdata Workflow</text>
+  <text x="800" y="100" text-anchor="middle" class="subtitle">Use the same framework to swap region, grid resolution, and high-resolution land inputs before running ELM</text>
+
+  <rect x="270" y="124" width="1060" height="72" rx="22" fill="url(#banner)" filter="url(#shadow)"/>
+  <text x="800" y="154" text-anchor="middle" style="font: 700 19px 'Avenir Next', 'Helvetica Neue', Arial, sans-serif; fill: #ffffff;">
+    Reusable backbone: target grid + mapping + domain
+  </text>
+  <text x="800" y="179" text-anchor="middle" style="font: 700 19px 'Avenir Next', 'Helvetica Neue', Arial, sans-serif; fill: #ffffff;">
+    + custom vegetation and LUT inputs + mksurfdata_map + soil update
+  </text>
+
+  <rect x="58" y="230" width="250" height="515" rx="28" fill="#ffffff" stroke="#d7ddd9" stroke-width="2.2" filter="url(#shadow)"/>
+  <text x="183" y="272" text-anchor="middle" class="section">User-Defined Inputs</text>
+  <text x="183" y="298" text-anchor="middle" class="small">Swap these choices for a new study region</text>
+
+  <rect x="82" y="324" width="202" height="96" rx="20" fill="#d9edf7"/>
+  <text x="102" y="356" class="body">Region / domain</text>
+  <text x="102" y="385" class="small">SEUS, watershed, state,</text>
+  <text x="102" y="408" class="small">basin, continent, or globe</text>
+
+  <rect x="82" y="446" width="202" height="96" rx="20" fill="#dcefdc"/>
+  <text x="102" y="478" class="body">Target resolution</text>
+  <text x="102" y="507" class="small">1/24 deg, 4 km, 1 km,</text>
+  <text x="102" y="530" class="small">or any custom SCRIP grid</text>
+
+  <rect x="82" y="568" width="202" height="122" rx="20" fill="#fde8c9"/>
+  <text x="102" y="600" class="body">High-resolution land input</text>
+  <text x="102" y="629" class="small">NLCD, remote sensing,</text>
+  <text x="102" y="652" class="small">regional surveys, or</text>
+  <text x="102" y="675" class="small">other user-prepared products</text>
+
+  <rect x="350" y="216" width="904" height="940" rx="34" fill="none" stroke="#8ba6af" stroke-width="2.4" stroke-dasharray="10 10"/>
+  <text x="802" y="250" text-anchor="middle" class="section">Main Workflow in This Repository</text>
+
+  <g filter="url(#shadow)">
+    <rect x="412" y="284" width="782" height="96" rx="26" fill="#d9edf7"/>
+    <circle cx="452" cy="332" r="28" fill="#2d6f88"/>
+    <text x="452" y="340" text-anchor="middle" class="stepnum">1</text>
+    <text x="498" y="321" class="steptitle">Build the target grid (SCRIP)</text>
+    <text x="498" y="347" class="steptext">Define the simulation grid for the chosen region and resolution.</text>
+    <text x="498" y="369" class="small">Example: small_SEUS_1_24deg_grids.nc</text>
+  </g>
+
+  <line x1="803" y1="380" x2="803" y2="420" stroke="#39586b" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="412" y="430" width="782" height="112" rx="26" fill="#dcefdc"/>
+    <circle cx="452" cy="486" r="28" fill="#3f7f50"/>
+    <text x="452" y="494" text-anchor="middle" class="stepnum">2</text>
+    <text x="498" y="472" class="steptitle">Generate mapping weights</text>
+    <text x="498" y="498" class="steptext">Create standard source-to-target maps and the regional</text>
+    <text x="498" y="520" class="steptext">LUT source-to-target map.</text>
+    <text x="498" y="539" class="small">Example: 17 standard mappings + NA 1/24 deg LUT to target domain</text>
+  </g>
+
+  <line x1="803" y1="542" x2="803" y2="582" stroke="#39586b" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="412" y="592" width="782" height="96" rx="26" fill="#efe4cd"/>
+    <circle cx="452" cy="640" r="28" fill="#9a7742"/>
+    <text x="452" y="648" text-anchor="middle" class="stepnum">3</text>
+    <text x="498" y="629" class="steptitle">Create the land domain</text>
+    <text x="498" y="655" class="steptext">Build land mask and land fraction files consistent with the target grid.</text>
+    <text x="498" y="677" class="small">Example: domain.lnd.small_SEUS_1_24deg.nc</text>
+  </g>
+
+  <line x1="803" y1="688" x2="803" y2="728" stroke="#39586b" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="412" y="738" width="782" height="170" rx="26" fill="#fde8c9"/>
+    <circle cx="452" cy="823" r="28" fill="#d07b24"/>
+    <text x="452" y="831" text-anchor="middle" class="stepnum">4</text>
+    <text x="498" y="781" class="steptitle">Prepare high-resolution vegetation</text>
+    <text x="498" y="807" class="steptitle">and land-use inputs</text>
+    <text x="498" y="835" class="steptext">Convert NLCD or other land cover to ELM PFT.</text>
+    <text x="498" y="857" class="steptext">Downscale LUH2 harvest and write LUT-style files.</text>
+    <text x="498" y="879" class="steptext">Prepare the mksrf_fdynuse yearly list for transient runs.</text>
+    <text x="498" y="900" class="small">Supports custom static or transient inputs for any user-defined region and grid</text>
+  </g>
+
+  <line x1="803" y1="908" x2="803" y2="948" stroke="#39586b" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="412" y="958" width="782" height="124" rx="26" fill="#f4d9d0"/>
+    <circle cx="452" cy="1020" r="28" fill="#9a4e43"/>
+    <text x="452" y="1028" text-anchor="middle" class="stepnum">5</text>
+    <text x="498" y="997" class="steptitle">Run mksurfdata_map</text>
+    <text x="498" y="1023" class="steptext">Use MAP_DIR, namelist, inputdata, and custom LUT inputs</text>
+    <text x="498" y="1045" class="steptext">to build model-ready files.</text>
+    <text x="498" y="1067" class="small">mksurfdata.pl -res usrspec ...  -&gt;  mksurfdata_map &lt; namelist</text>
+  </g>
+
+  <line x1="803" y1="1082" x2="803" y2="1122" stroke="#39586b" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="412" y="1132" width="782" height="118" rx="26" fill="#e4dff3"/>
+    <circle cx="452" cy="1191" r="28" fill="#6b5aa6"/>
+    <text x="452" y="1199" text-anchor="middle" class="stepnum">6</text>
+    <text x="498" y="1170" class="steptitle">Update soil data in surfdata.nc</text>
+    <text x="498" y="1196" class="steptext">Run update_Soil_surfdat.py to overwrite land cells with improved</text>
+    <text x="498" y="1218" class="steptext">soil texture, soil order, elevation, slope, and related fields.</text>
+    <text x="498" y="1240" class="small">Post-processing stage: produces the soil-updated surfdata used for ELM</text>
+  </g>
+
+  <rect x="1290" y="262" width="256" height="620" rx="28" fill="#ffffff" stroke="#d7ddd9" stroke-width="2.2" filter="url(#shadow)"/>
+  <text x="1418" y="304" text-anchor="middle" class="section">Model-Ready Outputs</text>
+  <text x="1418" y="330" text-anchor="middle" class="small">Files passed into high-resolution ELM simulations</text>
+
+  <rect x="1316" y="364" width="204" height="82" rx="18" fill="#d9edf7"/>
+  <text x="1418" y="392" text-anchor="middle" class="output">surfdata_*.nc</text>
+  <text x="1418" y="414" text-anchor="middle" class="small">then soil-updated</text>
+  <text x="1418" y="434" text-anchor="middle" class="small">surface properties</text>
+
+  <rect x="1316" y="468" width="204" height="92" rx="18" fill="#fde8c9"/>
+  <text x="1418" y="500" text-anchor="middle" class="output">landuse.timeseries_*</text>
+  <text x="1418" y="525" text-anchor="middle" class="small">transient PFT and harvest</text>
+
+  <rect x="1316" y="578" width="204" height="82" rx="18" fill="#efe4cd"/>
+  <text x="1418" y="610" text-anchor="middle" class="output">domain.lnd.*.nc</text>
+  <text x="1418" y="635" text-anchor="middle" class="small">regional land mask / landfrac</text>
+
+  <rect x="1316" y="690" width="204" height="124" rx="20" fill="#0f5c78"/>
+  <text x="1418" y="732" text-anchor="middle" style="font: 700 24px 'Avenir Next', 'Helvetica Neue', Arial, sans-serif; fill: #ffffff;">Run ELM</text>
+  <text x="1418" y="761" text-anchor="middle" style="font: 500 16px 'Avenir Next', 'Helvetica Neue', Arial, sans-serif; fill: #e6f3f6;">Use the new high-resolution</text>
+  <text x="1418" y="784" text-anchor="middle" style="font: 500 16px 'Avenir Next', 'Helvetica Neue', Arial, sans-serif; fill: #e6f3f6;">surface and land-use files</text>
+
+  <line x1="1194" y1="1191" x2="1310" y2="752" stroke="#39586b" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <path d="M 284 370 C 335 370 352 330 412 320" fill="none" stroke="#5a7b8c" stroke-width="3.4" marker-end="url(#arrow)"/>
+  <path d="M 284 628 C 340 628 357 746 412 767" fill="none" stroke="#5a7b8c" stroke-width="3.4" marker-end="url(#arrow)"/>
+
+  <rect x="250" y="1282" width="1100" height="104" rx="26" fill="#ffffff" stroke="#ced6d2" stroke-width="2" filter="url(#shadow)"/>
+  <text x="800" y="1322" text-anchor="middle" class="section">Scientific takeaway</text>
+  <text x="800" y="1350" text-anchor="middle" style="font: 500 17px 'Avenir Next', 'Helvetica Neue', Arial, sans-serif; fill: #173042;">The framework is portable: replace the target grid and high-resolution land inputs, regenerate mappings,</text>
+  <text x="800" y="1374" text-anchor="middle" style="font: 500 17px 'Avenir Next', 'Helvetica Neue', Arial, sans-serif; fill: #173042;">run mksurfdata_map, update soil data, and create custom surfdata for any region before running ELM.</text>
+
+</svg>

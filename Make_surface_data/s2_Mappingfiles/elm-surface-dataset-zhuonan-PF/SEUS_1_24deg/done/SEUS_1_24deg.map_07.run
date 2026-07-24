@@ -1,0 +1,38 @@
+#!/bin/bash
+#SBATCH -t 4:00:00
+#SBATCH -p hpcl-cli185
+#SBATCH -A hpcl-cli185
+#SBATCH -q hpcl-cli185
+#SBATCH -J map_07
+#SBATCH --nodes=1
+#SBATCH --ntasks=10
+#SBATCH -c 1
+#SBATCH --mem=460g
+#SBATCH -o %x-%j.out
+#SBATCH -e %x-%j.err
+
+CDATE=c260710
+module purge
+module load Core/25.05
+module load cmake/3.30.5
+module load gcc/12.4.0
+module load openmpi/5.0.5
+module load netcdf-c/4.9.2-mpi-h5f
+module load netcdf-fortran/4.6.1-mpi-h5f
+ESMF_APP=/projects/hpcl-cli185/proj-shared/zw5/software/esmf-8.8.1-openmpi-gcc12/bin/binO/Linux.gfortran.64.openmpi.default/ESMF_RegridWeightGen
+export LD_LIBRARY_PATH=/projects/hpcl-cli185/proj-shared/zw5/software/esmf-8.8.1-openmpi-gcc12/lib/libO/Linux.gfortran.64.openmpi.default:${LD_LIBRARY_PATH:-}
+export UCX_TLS=rc,ud,dc,self,tcp
+
+srun   -n 10 \
+"${ESMF_APP}" \
+--ignore_unmapped \
+-s /projects/hpcl-cli185/world-shared/e3sm/inputdata/lnd/clm2/mappingdata/grids/SCRIPgrid_5x5min_IGBP-GSDP_c110228.nc \
+-d /projects/hpcl-cli185/proj-shared/zw5/ELM_makeSurfdata/Make_surface_data/s1_Gridfiles/scr_out/SCRIPgrid_SEUS_1_24deg.nc \
+--dst_regional \
+-m conserve \
+-w map_5x5min_IGBP-GSDP_to_SEUS_1_24deg_nomask_aave_da_${CDATE}.nc \
+--src_type SCRIP \
+--dst_type SCRIP \
+--64bit_offset
+
+mv *07.run done/

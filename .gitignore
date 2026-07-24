@@ -1,0 +1,61 @@
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
+# Python caches and notebook checkpoints
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# Logs and Slurm output
+*.log
+*.out
+*.err
+slurm-*.out
+scr_out/
+**/scr_out/
+logs/
+**/logs/
+
+# Large Pathfinder data/results and generated products
+*.nc
+*.nc_*
+*.h5
+*.hdf5
+*.tif
+*.tiff
+*.png
+*.jpg
+*.jpeg
+*.pdf
+*.ckpt
+*.bin
+
+# Common generated/output directories
+outputs/
+**/outputs/
+intermediate/
+**/intermediate/
+surfdata_results/
+**/surfdata_results/
+output_downscaled_luh2_harvest/
+**/output_downscaled_luh2_harvest/
+
+# Project large data directories
+Make_surface_data/Soil_Properties/global_cf_float/
+Make_surface_data/s2_Mappingfiles/**/SEUS_1_24deg/*.nc
+Make_surface_data/s2_Mappingfiles/**/*.nc
+Make_surface_data/s4_LUToutput_pft/scr_out/
+Make_surface_data/s6_updateSoildata/intermediate/
+Make_surface_data/s7_updataPdata/intermediate/
+
+# Local backup/editor artifacts
+*.bak
+*~
+
+# Local assistant state and generated diagnostics
+.claude/
+*.csv
+Docs/Framework_figures/render_svg_to_png

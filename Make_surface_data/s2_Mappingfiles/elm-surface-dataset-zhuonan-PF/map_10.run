@@ -1,0 +1,31 @@
+#!/bin/bash
+#SBATCH -t 4:00:00
+#SBATCH -p batch
+#SBATCH -A CLI185
+#SBATCH -J map_10
+#SBATCH --nodes=1
+#SBATCH --ntasks=10
+#SBATCH -o %x-%j.out
+#SBATCH -e %x-%j.err
+
+CDATE=cYYMMDD
+module purge
+module load Core/25.05
+module load cmake/3.30.5
+module load gcc/12.4.0
+module load openmpi/5.0.5
+module load netcdf-c/4.9.2-mpi-h5f
+module load netcdf-fortran/4.6.1-mpi-h5f
+
+srun   -n 10 \
+ESMF_RegridWeightGen \
+--ignore_unmapped \
+-s /gpfs/wolf2/cades/cli185/world-shared/e3sm/inputdata/lnd/clm2/mappingdata/grids/SCRIPgrid_10x10min_IGBPmergeICESatGIS_c110818.nc \
+-d /gpfs/wolf2/cades/cli185/proj-shared/zw5/elm-surface-dataset/small_SEUS_1_24deg_grids.nc \
+--dst_regional \
+-m conserve \
+-w map_10x10min_IGBPmergeICESatGIS_to_HGRID_NAME_nomask_aave_da_${CDATE}.nc \
+--src_type SCRIP \
+--dst_type SCRIP
+
+mv *10.run done/
