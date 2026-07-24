@@ -30,6 +30,7 @@ logs/
 *.jpg
 *.jpeg
 *.pdf
+!Docs/E3SM_instruction_docs/*.pdf
 *.ckpt
 *.bin
 
