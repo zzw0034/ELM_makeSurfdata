@@ -474,26 +474,41 @@ def fig_dominant_pft(pft, natveg, extent, year, out_png):
     them to 9 and PFT 10 wins nowhere. Its entry is kept in the legend anyway
     (`ALWAYS_IN_LEGEND`) so the artifact is on the page rather than hidden.
 
-    Exact ties are counted and reported on stdout rather than drawn as their own
-    category, because they are not one phenomenon. For SEUS 2023, of the 47006
-    tied cells (3.5% of vegetated):
+    Ties are reported on stdout rather than drawn as their own category, and
+    they are reported in two groups because they are not the same thing:
 
-        1 <-> 7    69.9%   NLCD 43 mixed forest and 90 woody wetlands, each
-                           split 50/50 between needleleaf evergreen and
-                           broadleaf deciduous  <- the dominant tie source
-        7 <-> 13   21.4%   NLCD 21 developed open space, split 50/50
-        9 <-> 10    7.4%   NLCD 51/52 shrub, split 50/50
-        other       1.3%
+    * **9 <-> 10** -- not an ambiguity. The two are equal in every cell by
+      construction, so resolving to 9 *is* the right answer, not a coin flip.
+      Counted on its own line. SEUS 2023: 3473 cells, 0.3% of vegetated.
+    * **everything else** -- here the lower-index rule really does pick a
+      winner arbitrarily. SEUS 2023: 43533 cells, 3.2% of vegetated, made up of
 
-    `argmax` awards each of these to the lower index, so PFT 1's share carries
-    the 1/7 ties (2.5% of vegetated cells) and PFT 7's carries the 7/13 ties
-    (0.8%). Treat those two shares as upper bounds.
+          1 <-> 7    32856   NLCD 43 mixed forest and 90 woody wetlands, each
+                             split 50/50 between needleleaf evergreen and
+                             broadleaf deciduous  <- the dominant tie source
+          7 <-> 13   10079   NLCD 21 developed open space, split 50/50
+          other        ~600
+
+      so PFT 1's share carries the 1/7 ties (2.5% of vegetated cells) and
+      PFT 7's carries the 7/13 ties (0.8%). Treat those two as upper bounds.
     """
     veg = natveg > 0
     nveg = max(int(veg.sum()), 1)
     dominant = np.argmax(pft, axis=0)
     top = np.max(pft, axis=0)
-    tie = ((pft == top[None, :, :]).sum(axis=0) > 1) & (top > 0)
+    is_max = pft == top[None, :, :]
+    tie = (is_max.sum(axis=0) > 1) & (top > 0)
+    # Bitmask of which PFTs share the maximum, so ties can be split by *which*
+    # PFTs are tied rather than lumped together.
+    tied_set = np.zeros(pft.shape[1:], dtype=np.int32)
+    for k in range(NPFT):
+        tied_set |= is_max[k].astype(np.int32) << k
+    # A 9<->10 tie is not an ambiguity: they are equal in every cell by
+    # construction, so resolving it to 9 is the intended answer, not a coin
+    # flip. Report it apart from the ties where the lower-index rule really
+    # does pick a winner arbitrarily.
+    tie_910 = tie & (tied_set == (1 << 9 | 1 << 10))
+    tie_amb = tie & ~tie_910
 
     # Categories are built from what is actually on the map, so dead legend
     # entries do not appear -- PFT 14 (c4_grass) for instance can never win:
@@ -534,12 +549,17 @@ def fig_dominant_pft(pft, natveg, extent, year, out_png):
     fig.savefig(out_png, dpi=220, bbox_inches="tight")
     plt.close(fig)
     print(f"wrote {out_png}")
-    print(f"  exact ties: {int(tie.sum())} cells "
-          f"({100.0 * int((tie & veg).sum()) / nveg:.1f}% of vegetated cells) "
-          f"— all awarded to the lower index")
+    pct = lambda n: f"{n} cells ({100.0 * n / nveg:.1f}%)"
+    print(f"  9<->10 ties, resolved to 9 (identical by construction): "
+          f"{pct(int((tie_910 & veg).sum()))}")
+    print(f"  ambiguous ties, awarded to the lower index: "
+          f"{pct(int((tie_amb & veg).sum()))}")
+    sets, counts = np.unique(tied_set[tie_amb & veg], return_counts=True)
+    for bits, n in sorted(zip(sets.tolist(), counts.tolist()), key=lambda t: -t[1])[:5]:
+        members = "<->".join(str(k) for k in range(NPFT) if bits >> k & 1)
+        print(f"      {members:<12} {pct(n)}")
     for k in ALWAYS_IN_LEGEND:
-        n = int(((dominant == k) & veg).sum())
-        print(f"  PFT {k:2d} dominant: {n} cells ({100.0 * n / nveg:.1f}%)")
+        print(f"  PFT {k:2d} dominant: {pct(int(((dominant == k) & veg).sum()))}")
 
 
 # --------------------------------------------------------------------------
