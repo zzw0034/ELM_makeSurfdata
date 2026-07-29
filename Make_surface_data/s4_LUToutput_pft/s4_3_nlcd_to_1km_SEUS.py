@@ -53,6 +53,7 @@ import time
 import matplotlib
 
 matplotlib.use("Agg")
+import matplotlib.patches as mpatches  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.colors import BoundaryNorm, ListedColormap  # noqa: E402
@@ -139,6 +140,31 @@ AGG_CLASSES = {
     "wetland": [90, 95],
 }
 AGG_COLORS = ["#1f6feb", "#c62828", "#8d6e63", "#1b5e20", "#ef8f00", "#9ccc65", "#fdd835", "#7e57c2"]
+
+# Categorical palette for the dominant-PFT map. Searched in OKLCH and checked
+# with the dataviz validator at `--pairs all` -- a map is an all-pairs form,
+# since any two categories can end up adjacent. Against the light surface:
+#
+#   lightness band  PASS      chroma floor  PASS
+#   CVD separation  PASS      worst all-pairs #cdaf33 (grass) <-> #6b9e1f
+#                             (deciduous), dE 8.4 protan   (target >= 8)
+#   normal vision   PASS      same pair, dE 15.1           (hard floor >= 15)
+#   contrast        relief required -> the legend carries visible labels and
+#                   area shares rather than a colorbar
+#
+# Grey for bare ground is not available: it fails the chroma floor, so bare
+# ground takes steel blue. Crop takes rose -- ESA WorldCover also uses pink for
+# cropland -- and that is what removes the old crop/bare-ground collision
+# (those two were #a1887f and #9e9e9e, dE 6.2 apart under *normal* vision).
+PFT_MAP_COLORS = {
+    0: "#3578b8",   # Bare_Ground                          steel blue
+    1: "#0b7643",   # needleleaf_evergreen_temperate_tree   deep green
+    7: "#6b9e1f",   # broadleaf_deciduous_temperate_tree    leaf green
+    13: "#cdaf33",  # c3_non-arctic_grass                   gold
+    15: "#eb6f9a",  # crop                                  rose
+}
+TIE_COLOR = "#d00021"    # shrub 9/10 tie                   crimson
+OTHER_COLOR = "#4a4a4a"  # catch-all bucket, not an identity slot
 
 
 # --------------------------------------------------------------------------
@@ -439,50 +465,62 @@ def fig_dominant_pft(pft, natveg, extent, year, out_png):
     "shrub 9/10 tie" category instead. Same check is applied generically, so any
     other exact tie is reported rather than silently broken.
     """
+    veg = natveg > 0
+    nveg = max(int(veg.sum()), 1)
     dominant = np.argmax(pft, axis=0)
     top = np.max(pft, axis=0)
     n_tied = (pft == top[None, :, :]).sum(axis=0)
     tie = (n_tied > 1) & (top > 0)
 
-    cats = [(k, ELM_PFT_NAMES[k], c) for k, c in [
-        (0, "#9e9e9e"), (1, "#1b5e20"), (7, "#8bc34a"), (13, "#fff59d"),
-        (14, "#ffb74d"), (15, "#a1887f"),
-    ]]
+    # Categories are built from what is actually on the map, so dead legend
+    # entries do not appear -- PFT 14 (c4_grass) for instance can never win:
+    # pft[14] = 0.2*(71+72+81) is by construction <= pft[13] = 0.8*(...) + 95.
+    # Each entity keeps its own fixed colour whether or not its neighbours are
+    # present, so a category never inherits another one's colour.
     codes = np.full(pft.shape[1:], -1, dtype=np.int16)
     labels, colors = [], []
-    for slot, (k, name, color) in enumerate(cats):
-        codes[(dominant == k) & ~tie] = slot
-        labels.append(f"{k}: {name}")
+
+    def add_category(mask, label, color):
+        n = int(mask.sum())
+        if not n:
+            return
+        codes[mask] = len(labels)
+        labels.append(f"{label}  —  {100.0 * n / nveg:.1f}%")
         colors.append(color)
-    codes[tie] = len(labels)
-    labels.append("tie (shrub 9/10 split 50/50)")
-    colors.append("#ef8f00")
-    # anything not covered above
-    other = (codes < 0) & (natveg > 0)
-    codes[other] = len(labels)
-    labels.append("other PFT")
-    colors.append("#000000")
+
+    for k, color in PFT_MAP_COLORS.items():
+        add_category((dominant == k) & ~tie & veg, f"{k}: {ELM_PFT_NAMES[k]}", color)
+    add_category(tie & veg, "tie: shrub 9/10 (NLCD 51/52 split 50/50)", TIE_COLOR)
+    add_category((codes < 0) & veg, "other PFT", OTHER_COLOR)
 
     codes_f = codes.astype(float)
-    codes_f[natveg <= 0] = np.nan
+    codes_f[~veg] = np.nan
 
     cmap = ListedColormap(colors)
     cmap.set_bad("white")
     norm = BoundaryNorm(np.arange(-0.5, len(labels)), cmap.N)
 
     fig, ax = plt.subplots(figsize=(11, 8))
-    im = ax.imshow(codes_f, origin="lower", extent=extent, cmap=cmap, norm=norm,
-                   interpolation="nearest")
+    ax.imshow(codes_f, origin="lower", extent=extent, cmap=cmap, norm=norm,
+              interpolation="nearest")
     _map_axes(ax, extent)
     ax.set_title(f"Dominant ELM natural PFT, NLCD {year} — SEUS 0.01° (~1 km)")
     ax.set_xlabel("Longitude"); ax.set_ylabel("Latitude")
-    cb = fig.colorbar(im, ax=ax, ticks=range(len(labels)), shrink=0.85)
-    cb.ax.set_yticklabels(labels, fontsize=8)
+    # A legend, not a colorbar: these are identities, not a continuous scale.
+    # The share labels double as the "relief" the contrast check asks for.
+    # It sits over the Gulf of Mexico, which is empty on this map.
+    ax.legend(
+        handles=[mpatches.Patch(facecolor=c, edgecolor="#00000033", label=lab)
+                 for c, lab in zip(colors, labels)],
+        title="share of vegetated cells", title_fontsize=8.5, fontsize=8,
+        loc="lower left", bbox_to_anchor=(0.005, 0.005), frameon=True,
+        facecolor="white", edgecolor="#d0d0d0", framealpha=0.92, borderpad=0.7,
+    )
     fig.savefig(out_png, dpi=220, bbox_inches="tight")
     plt.close(fig)
     print(f"wrote {out_png}")
-    tied_pct = 100.0 * tie.sum() / max((natveg > 0).sum(), 1)
-    print(f"  exact ties: {tie.sum()} cells ({tied_pct:.1f}% of vegetated cells)")
+    print(f"  exact ties: {int(tie.sum())} cells "
+          f"({100.0 * int((tie & veg).sum()) / nveg:.1f}% of vegetated cells)")
 
 
 # --------------------------------------------------------------------------

@@ -160,6 +160,14 @@ NLCD 分数），量级合理。
 2. `fig2_dominant_pft_*` — 优势 ELM 自然 PFT。**PFT 9 与 PFT 10 按构造恒等**
    （灌木类 51/52 被 50/50 拆开），直接 `argmax` 会因 numpy 的低索引优先把所有
    灌木格点判给 PFT 9，所以并列格点单列一类而不是被静默打破。
+
+   配色（`PFT_MAP_COLORS`）在 OKLCH 空间搜出来，按 `--pairs all` 校验（地图上
+   任意两类都可能相邻）：CVD ΔE **8.4**（目标 ≥8）、正常视觉 ΔE **15.1**
+   （硬门槛 ≥15），最紧的一对是金色草地 ↔ 叶绿落叶林。旧配色里 crop `#a1887f`
+   与 bare ground `#9e9e9e` 正常视觉只差 ΔE 6.2，肉眼就分不开——现在 bare ground
+   用钢蓝（灰色过不了 chroma floor）、crop 用玫红。图例按**实际出现的类别**生成
+   并带面积占比，所以 `14: c4_grass`（构造上永远赢不了 PFT 13）和空的
+   `other PFT` 不会再出现在图例里。
 3. `fig3_natveg_urban_*` — PCT_NATVEG、PCT_URBAN（22/23/24 及合计）、有效像元占比。
 4. `fig4_pct_nat_pft_panels_*` — 17 个 PFT 分面板。
 
