@@ -562,6 +562,72 @@ def fig_dominant_pft(pft, natveg, extent, year, out_png):
         print(f"  PFT {k:2d} dominant: {pct(int(((dominant == k) & veg).sum()))}")
 
 
+def fig_dominant_pft_compare(panels, year, extent, out_png):
+    """Dominant-PFT maps at two resolutions, side by side under one legend.
+
+    `panels` is [(res, pft, natveg), ...]. Both panels are mapped onto the same
+    category list and the same colours as `fig_dominant_pft`, so a colour means
+    the same PFT in either panel and the eye can compare them directly.
+
+    Each resolution is binned from the NLCD source independently -- the coarse
+    map is not an average of the fine one -- so the only thing that differs
+    between the panels is the grid.
+    """
+    slots = list(PFT_MAP_COLORS)
+    all_colors = list(PFT_MAP_COLORS.values()) + [OTHER_COLOR]
+    all_labels = [f"{k}: {ELM_PFT_NAMES[k]}" for k in slots] + ["other PFT"]
+
+    coded, shares, present = [], [], {slots.index(k) for k in ALWAYS_IN_LEGEND}
+    for res, pft, natveg in panels:
+        veg = natveg > 0
+        dominant = np.argmax(pft, axis=0)
+        codes = np.full(pft.shape[1:], -1, dtype=np.int16)
+        for i, k in enumerate(slots):
+            codes[(dominant == k) & veg] = i
+        codes[(codes < 0) & veg] = len(slots)
+        nveg = max(int(veg.sum()), 1)
+        share = {i: 100.0 * int((codes == i).sum()) / nveg for i in range(len(all_labels))}
+        present |= {i for i, s in share.items() if s > 0}
+        coded.append((res, codes, veg, nveg))
+        shares.append(share)
+
+    order = sorted(present)
+    remap = {old: new for new, old in enumerate(order)}
+    colors = [all_colors[i] for i in order]
+    labels = [all_labels[i] for i in order]
+    cmap = ListedColormap(colors)
+    cmap.set_bad("white")
+    norm = BoundaryNorm(np.arange(-0.5, len(labels)), cmap.N)
+
+    fig, axes = plt.subplots(1, 2, figsize=(19, 7))
+    for ax, (res, codes, veg, nveg) in zip(axes, coded):
+        disp = np.full(codes.shape, np.nan)
+        for old, new in remap.items():
+            disp[codes == old] = new
+        disp[~veg] = np.nan
+        im = ax.imshow(disp, origin="lower", extent=extent, cmap=cmap, norm=norm,
+                       interpolation="nearest")
+        _map_axes(ax, extent)
+        km = res * 111.0
+        ax.set_title(f"{res:g}°  (~{km:.0f} km)   —   {codes.shape[1]} × {codes.shape[0]} cells,"
+                     f" {nveg} vegetated", fontsize=11)
+        ax.set_xlabel("Longitude")
+    axes[0].set_ylabel("Latitude")
+    cb = fig.colorbar(im, ax=axes, ticks=range(len(labels)), shrink=0.85, pad=0.02)
+    cb.ax.set_yticklabels(labels, fontsize=8)
+    fig.suptitle(f"Dominant ELM natural PFT, NLCD {year} — SEUS, "
+                 f"each grid binned from the same source", fontsize=14)
+    fig.savefig(out_png, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"wrote {out_png}")
+
+    head = "  " + "".ljust(38) + "".join(f"{r:>10g}°" for r, *_ in coded)
+    print(head)
+    for i in order:
+        row = "".join(f"{s[i]:9.1f}%" for s in shares)
+        print(f"  {all_labels[i]:<38}{row}")
+
+
 # --------------------------------------------------------------------------
 
 
@@ -581,12 +647,31 @@ def main():
     p.add_argument("--plot-only", action="store_true",
                    help="skip the binning and re-draw from the existing NetCDF")
     p.add_argument("--no-plot", action="store_true", help="write the NetCDF only")
+    p.add_argument("--compare", type=float, nargs=2, metavar=("RES_A", "RES_B"),
+                   help="draw the two resolutions' dominant-PFT maps side by side "
+                        "from NetCDFs already written for each; does no binning")
     args = p.parse_args()
 
     bbox = tuple(args.bbox)
     os.makedirs(args.outdir, exist_ok=True)
     tag = f"{args.year}_SEUS_{args.res:g}deg"
     nc_path = os.path.join(args.outdir, f"nlcd_elmpft_{tag}.nc")
+
+    if args.compare:
+        panels = []
+        for res in args.compare:
+            path = os.path.join(args.outdir, f"nlcd_elmpft_{args.year}_SEUS_{res:g}deg.nc")
+            if not os.path.exists(path):
+                raise SystemExit(f"missing {path}\n  run with --res {res:g} first")
+            _, _, _, _, pft, natveg, _ = read_netcdf(path)
+            print(f"read {path}")
+            panels.append((res, pft, natveg))
+        out = os.path.join(
+            args.outdir,
+            f"fig5_dominant_pft_compare_{args.year}_SEUS_"
+            f"{args.compare[0]:g}deg_vs_{args.compare[1]:g}deg.png")
+        fig_dominant_pft_compare(panels, args.year, tuple(bbox), out)
+        return
 
     print(f"year        : {args.year}")
     print(f"domain      : lon [{bbox[0]}, {bbox[1]}], lat [{bbox[2]}, {bbox[3]}]")
