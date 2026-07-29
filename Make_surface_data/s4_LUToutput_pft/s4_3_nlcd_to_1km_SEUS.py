@@ -53,7 +53,6 @@ import time
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.patches as mpatches  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.colors import BoundaryNorm, ListedColormap  # noqa: E402
@@ -141,29 +140,31 @@ AGG_CLASSES = {
 }
 AGG_COLORS = ["#1f6feb", "#c62828", "#8d6e63", "#1b5e20", "#ef8f00", "#9ccc65", "#fdd835", "#7e57c2"]
 
-# Categorical palette for the dominant-PFT map. Searched in OKLCH and checked
-# with the dataviz validator at `--pairs all` -- a map is an all-pairs form,
-# since any two categories can end up adjacent. Against the light surface:
+# Categorical palette for the dominant-PFT map: AGG_COLORS above, minus water
+# and shrub, so fig1 and fig2 draw from one set of hues. The land-cover meaning
+# a colour carries in fig1 is not preserved here.
 #
-#   lightness band  PASS      chroma floor  PASS
-#   CVD separation  PASS      worst all-pairs #cdaf33 (grass) <-> #6b9e1f
-#                             (deciduous), dE 8.4 protan   (target >= 8)
-#   normal vision   PASS      same pair, dE 15.1           (hard floor >= 15)
-#   contrast        relief required -> the legend carries visible labels and
-#                   area shares rather than a colorbar
+# Measured with the dataviz validator at `--pairs all` (a map is an all-pairs
+# form -- any two categories can end up adjacent), light surface:
 #
-# Grey for bare ground is not available: it fails the chroma floor, so bare
-# ground takes steel blue. Crop takes rose -- ESA WorldCover also uses pink for
-# cropland -- and that is what removes the old crop/bare-ground collision
-# (those two were #a1887f and #9e9e9e, dE 6.2 apart under *normal* vision).
+#   lightness band  FAIL   #1b5e20 (L 0.425) and #9ccc65 (L 0.789) sit outside
+#   chroma floor    FAIL   #8d6e63 (C 0.043) reads as grey
+#   CVD separation  FAIL   #1b5e20 <-> #c62828, dE 2.0 protan  (target >= 8)
+#   normal vision   FAIL   dE 13.8                            (floor >= 15)
+#
+# Dark green and dark red are the same colour to a red-green colourblind
+# reader, and no assignment of these six hues avoids that pair. It is placed on
+# conifer (32% of the map) vs the shrub tie (3.5%) so the confusable partner is
+# the smallest category available. Read this map with the caveat, or use the
+# validated palette in git history (commit 74ef6f6) if CVD safety matters.
 PFT_MAP_COLORS = {
-    0: "#3578b8",   # Bare_Ground                          steel blue
-    1: "#0b7643",   # needleleaf_evergreen_temperate_tree   deep green
-    7: "#6b9e1f",   # broadleaf_deciduous_temperate_tree    leaf green
-    13: "#cdaf33",  # c3_non-arctic_grass                   gold
-    15: "#eb6f9a",  # crop                                  rose
+    0: "#8d6e63",   # Bare_Ground                          fig1 "barren"
+    1: "#1b5e20",   # needleleaf_evergreen_temperate_tree  fig1 "forest"
+    7: "#9ccc65",   # broadleaf_deciduous_temperate_tree   fig1 "grass"
+    13: "#fdd835",  # c3_non-arctic_grass                  fig1 "crop"
+    15: "#7e57c2",  # crop                                 fig1 "wetland"
 }
-TIE_COLOR = "#d00021"    # shrub 9/10 tie                   crimson
+TIE_COLOR = "#c62828"    # shrub 9/10 tie                  fig1 "urban"
 OTHER_COLOR = "#4a4a4a"  # catch-all bucket, not an identity slot
 
 
@@ -481,11 +482,10 @@ def fig_dominant_pft(pft, natveg, extent, year, out_png):
     labels, colors = [], []
 
     def add_category(mask, label, color):
-        n = int(mask.sum())
-        if not n:
+        if not int(mask.sum()):
             return
         codes[mask] = len(labels)
-        labels.append(f"{label}  —  {100.0 * n / nveg:.1f}%")
+        labels.append(label)
         colors.append(color)
 
     for k, color in PFT_MAP_COLORS.items():
@@ -501,21 +501,14 @@ def fig_dominant_pft(pft, natveg, extent, year, out_png):
     norm = BoundaryNorm(np.arange(-0.5, len(labels)), cmap.N)
 
     fig, ax = plt.subplots(figsize=(11, 8))
-    ax.imshow(codes_f, origin="lower", extent=extent, cmap=cmap, norm=norm,
-              interpolation="nearest")
+    im = ax.imshow(codes_f, origin="lower", extent=extent, cmap=cmap, norm=norm,
+                   interpolation="nearest")
     _map_axes(ax, extent)
     ax.set_title(f"Dominant ELM natural PFT, NLCD {year} — SEUS 0.01° (~1 km)")
     ax.set_xlabel("Longitude"); ax.set_ylabel("Latitude")
-    # A legend, not a colorbar: these are identities, not a continuous scale.
-    # The share labels double as the "relief" the contrast check asks for.
-    # It sits over the Gulf of Mexico, which is empty on this map.
-    ax.legend(
-        handles=[mpatches.Patch(facecolor=c, edgecolor="#00000033", label=lab)
-                 for c, lab in zip(colors, labels)],
-        title="share of vegetated cells", title_fontsize=8.5, fontsize=8,
-        loc="lower left", bbox_to_anchor=(0.005, 0.005), frameon=True,
-        facecolor="white", edgecolor="#d0d0d0", framealpha=0.92, borderpad=0.7,
-    )
+    # Colorbar with class names as tick labels -- same legend style as fig1.
+    cb = fig.colorbar(im, ax=ax, ticks=range(len(labels)), shrink=0.8)
+    cb.ax.set_yticklabels(labels, fontsize=8)
     fig.savefig(out_png, dpi=220, bbox_inches="tight")
     plt.close(fig)
     print(f"wrote {out_png}")
