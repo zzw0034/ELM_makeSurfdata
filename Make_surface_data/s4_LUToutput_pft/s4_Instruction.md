@@ -157,7 +157,7 @@ NLCD 分数），量级合理。
 
 ```bash
 python s4_3_nlcd_to_1km_SEUS.py --year 2023 --res 0.5 --no-plot   # 先生成 0.5° 产品
-python s4_3_nlcd_to_1km_SEUS.py --year 2023 --compare 0.01 0.5    # 再并排出图
+python s4_3_nlcd_to_1km_SEUS.py --year 2023 --compare 0.01 0.5    # 再并排出图（粗的在左）
 ```
 
 两个分辨率**各自从同一份 NLCD 源独立分箱**，粗网格不是细网格的平均，所以两张图

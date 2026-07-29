@@ -53,6 +53,7 @@ import time
 import matplotlib
 
 matplotlib.use("Agg")
+import matplotlib.patches as mpatches  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.colors import BoundaryNorm, ListedColormap  # noqa: E402
@@ -565,14 +566,17 @@ def fig_dominant_pft(pft, natveg, extent, year, out_png):
 def fig_dominant_pft_compare(panels, year, extent, out_png):
     """Dominant-PFT maps at two resolutions, side by side under one legend.
 
-    `panels` is [(res, pft, natveg), ...]. Both panels are mapped onto the same
-    category list and the same colours as `fig_dominant_pft`, so a colour means
-    the same PFT in either panel and the eye can compare them directly.
+    `panels` is [(res, pft, natveg), ...]; they are ordered coarse -> fine here,
+    so the panel order does not depend on how the resolutions were passed on the
+    command line. Both panels are mapped onto the same category list and the same
+    colours as `fig_dominant_pft`, so a colour means the same PFT in either panel
+    and the eye can compare them directly.
 
     Each resolution is binned from the NLCD source independently -- the coarse
     map is not an average of the fine one -- so the only thing that differs
     between the panels is the grid.
     """
+    panels = sorted(panels, key=lambda p: -p[0])   # coarse on the left
     slots = list(PFT_MAP_COLORS)
     all_colors = list(PFT_MAP_COLORS.values()) + [OTHER_COLOR]
     all_labels = [f"{k}: {ELM_PFT_NAMES[k]}" for k in slots] + ["other PFT"]
@@ -599,7 +603,7 @@ def fig_dominant_pft_compare(panels, year, extent, out_png):
     cmap.set_bad("white")
     norm = BoundaryNorm(np.arange(-0.5, len(labels)), cmap.N)
 
-    fig, axes = plt.subplots(1, 2, figsize=(19, 7))
+    fig, axes = plt.subplots(1, 2, figsize=(19, 7.5))
     for ax, (res, codes, veg, nveg) in zip(axes, coded):
         disp = np.full(codes.shape, np.nan)
         for old, new in remap.items():
@@ -611,10 +615,14 @@ def fig_dominant_pft_compare(panels, year, extent, out_png):
         km = res * 111.0
         ax.set_title(f"{res:g}°  (~{km:.0f} km)   —   {codes.shape[1]} × {codes.shape[0]} cells,"
                      f" {nveg} vegetated", fontsize=11)
-        ax.set_xlabel("Longitude")
-    axes[0].set_ylabel("Latitude")
-    cb = fig.colorbar(im, ax=axes, ticks=range(len(labels)), shrink=0.85, pad=0.02)
-    cb.ax.set_yticklabels(labels, fontsize=8)
+    # Swatches in rows rather than a horizontal colorbar: seven PFT names laid
+    # end to end along one bar overlap each other at any readable font size.
+    fig.legend(
+        handles=[mpatches.Patch(facecolor=c, edgecolor="#00000033", label=lab)
+                 for c, lab in zip(colors, labels)],
+        loc="lower center", bbox_to_anchor=(0.5, -0.01), ncol=4, fontsize=9,
+        frameon=False, handlelength=1.6, handleheight=1.1, columnspacing=2.0,
+    )
     fig.suptitle(f"Dominant ELM natural PFT, NLCD {year} — SEUS, "
                  f"each grid binned from the same source", fontsize=14)
     fig.savefig(out_png, dpi=200, bbox_inches="tight")
@@ -666,10 +674,11 @@ def main():
             _, _, _, _, pft, natveg, _ = read_netcdf(path)
             print(f"read {path}")
             panels.append((res, pft, natveg))
+        coarse, fine = sorted(args.compare, reverse=True)
         out = os.path.join(
             args.outdir,
             f"fig5_dominant_pft_compare_{args.year}_SEUS_"
-            f"{args.compare[0]:g}deg_vs_{args.compare[1]:g}deg.png")
+            f"{coarse:g}deg_vs_{fine:g}deg.png")
         fig_dominant_pft_compare(panels, args.year, tuple(bbox), out)
         return
 
