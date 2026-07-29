@@ -153,19 +153,27 @@ AGG_COLORS = ["#1f6feb", "#c62828", "#8d6e63", "#1b5e20", "#ef8f00", "#9ccc65", 
 #   normal vision   FAIL   dE 13.8                            (floor >= 15)
 #
 # Dark green and dark red are the same colour to a red-green colourblind
-# reader, and no assignment of these six hues avoids that pair. It is placed on
-# conifer (32% of the map) vs the shrub tie (3.5%) so the confusable partner is
-# the smallest category available. Read this map with the caveat, or use the
+# reader, and no assignment of these hues avoids that pair. It is placed on
+# conifer (32% of the map) vs PFT 9 (0.3%) so the confusable partner is the
+# smallest category available. Read this map with the caveat, or use the
 # validated palette in git history (commit 74ef6f6) if CVD safety matters.
 PFT_MAP_COLORS = {
-    0: "#8d6e63",   # Bare_Ground                          fig1 "barren"
-    1: "#1b5e20",   # needleleaf_evergreen_temperate_tree  fig1 "forest"
-    7: "#9ccc65",   # broadleaf_deciduous_temperate_tree   fig1 "grass"
-    13: "#fdd835",  # c3_non-arctic_grass                  fig1 "crop"
-    15: "#7e57c2",  # crop                                 fig1 "wetland"
+    0: "#8d6e63",   # Bare_Ground                            fig1 "barren"
+    1: "#1b5e20",   # needleleaf_evergreen_temperate_tree    fig1 "forest"
+    7: "#9ccc65",   # broadleaf_deciduous_temperate_tree     fig1 "grass"
+    9: "#c62828",   # broadleaf_evergreen_shrub              fig1 "urban"
+    10: "#1f6feb",  # broadleaf_deciduous_temperate_shrub    fig1 "water"
+    13: "#fdd835",  # c3_non-arctic_grass                    fig1 "crop"
+    15: "#7e57c2",  # crop                                   fig1 "wetland"
 }
-TIE_COLOR = "#c62828"    # shrub 9/10 tie                  fig1 "urban"
 OTHER_COLOR = "#4a4a4a"  # catch-all bucket, not an identity slot
+
+# PFT 9 and PFT 10 are equal in every cell by construction -- the shrub classes
+# (NLCD 51/52) are split 50/50 between them -- so `argmax` awards every shrub
+# cell to 9 on numpy's lower-index tie-break and 10 never wins anywhere. Both
+# are kept in the legend regardless of area so that artifact stays visible
+# instead of being silently absorbed into slot 9.
+ALWAYS_IN_LEGEND = (9, 10)
 
 
 # --------------------------------------------------------------------------
@@ -460,18 +468,32 @@ def fig_natveg_urban(natveg, urban, landfrac, extent, year, out_png):
 def fig_dominant_pft(pft, natveg, extent, year, out_png):
     """Dominant natural PFT.
 
-    PFT 9 and PFT 10 are equal *by construction* -- the shrub classes (51, 52)
-    are split 50/50 between them -- so a plain argmax would hand every shrub
-    cell to PFT 9 on numpy's lower-index tie-break. Those cells get their own
-    "shrub 9/10 tie" category instead. Same check is applied generically, so any
-    other exact tie is reported rather than silently broken.
+    Every PFT is its own legend entry, so the shrub classes are listed as 9 and
+    10 separately rather than merged into one "tie" row. Note what that means:
+    9 and 10 are equal in every cell by construction, so `argmax` gives all of
+    them to 9 and PFT 10 wins nowhere. Its entry is kept in the legend anyway
+    (`ALWAYS_IN_LEGEND`) so the artifact is on the page rather than hidden.
+
+    Exact ties are counted and reported on stdout rather than drawn as their own
+    category, because they are not one phenomenon. For SEUS 2023, of the 47006
+    tied cells (3.5% of vegetated):
+
+        1 <-> 7    69.9%   NLCD 43 mixed forest and 90 woody wetlands, each
+                           split 50/50 between needleleaf evergreen and
+                           broadleaf deciduous  <- the dominant tie source
+        7 <-> 13   21.4%   NLCD 21 developed open space, split 50/50
+        9 <-> 10    7.4%   NLCD 51/52 shrub, split 50/50
+        other       1.3%
+
+    `argmax` awards each of these to the lower index, so PFT 1's share carries
+    the 1/7 ties (2.5% of vegetated cells) and PFT 7's carries the 7/13 ties
+    (0.8%). Treat those two shares as upper bounds.
     """
     veg = natveg > 0
     nveg = max(int(veg.sum()), 1)
     dominant = np.argmax(pft, axis=0)
     top = np.max(pft, axis=0)
-    n_tied = (pft == top[None, :, :]).sum(axis=0)
-    tie = (n_tied > 1) & (top > 0)
+    tie = ((pft == top[None, :, :]).sum(axis=0) > 1) & (top > 0)
 
     # Categories are built from what is actually on the map, so dead legend
     # entries do not appear -- PFT 14 (c4_grass) for instance can never win:
@@ -481,16 +503,16 @@ def fig_dominant_pft(pft, natveg, extent, year, out_png):
     codes = np.full(pft.shape[1:], -1, dtype=np.int16)
     labels, colors = [], []
 
-    def add_category(mask, label, color):
-        if not int(mask.sum()):
+    def add_category(mask, label, color, force=False):
+        if not int(mask.sum()) and not force:
             return
         codes[mask] = len(labels)
         labels.append(label)
         colors.append(color)
 
     for k, color in PFT_MAP_COLORS.items():
-        add_category((dominant == k) & ~tie & veg, f"{k}: {ELM_PFT_NAMES[k]}", color)
-    add_category(tie & veg, "tie: shrub 9/10 (NLCD 51/52 split 50/50)", TIE_COLOR)
+        add_category((dominant == k) & veg, f"{k}: {ELM_PFT_NAMES[k]}", color,
+                     force=k in ALWAYS_IN_LEGEND)
     add_category((codes < 0) & veg, "other PFT", OTHER_COLOR)
 
     codes_f = codes.astype(float)
@@ -513,7 +535,11 @@ def fig_dominant_pft(pft, natveg, extent, year, out_png):
     plt.close(fig)
     print(f"wrote {out_png}")
     print(f"  exact ties: {int(tie.sum())} cells "
-          f"({100.0 * int((tie & veg).sum()) / nveg:.1f}% of vegetated cells)")
+          f"({100.0 * int((tie & veg).sum()) / nveg:.1f}% of vegetated cells) "
+          f"— all awarded to the lower index")
+    for k in ALWAYS_IN_LEGEND:
+        n = int(((dominant == k) & veg).sum())
+        print(f"  PFT {k:2d} dominant: {n} cells ({100.0 * n / nveg:.1f}%)")
 
 
 # --------------------------------------------------------------------------
